@@ -101,8 +101,4 @@ dump_cache "BEFORE_GEN" "$XDG_CACHE_HOME/dhall"
 debug_log "Generating $OUTPUT_FILE"
 # We want the _DHALL_ARGS to expand
 # shellcheck disable=SC2086
-if ! $DHALL_TO_YAML_BIN ${_DHALL_ARGS} --file "$DHALL_FILE" > "$OUTPUT_FILE"
-then
-  exit $?
-fi
-
+$DHALL_TO_YAML_BIN ${_DHALL_ARGS} --file "$DHALL_FILE" > "$OUTPUT_FILE"
