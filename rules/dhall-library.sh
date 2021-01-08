@@ -18,18 +18,6 @@ function unpack_tars() {
   done
 }
 
-function copy_resources() {
-  for resource in "$@"; do
-    local source_path
-    source_path=$(cut -d':' -f 1 <<< "${resource}")
-    local target_path
-    target_path=$(cut -d':' -f 2 <<< "${resource}")
-
-    debug_log "Copying $source_path to $target_path"
-    cp -f "$source_path" "$target_path"
-  done
-}
-
 function dump_cache() {
   if [ "$DEBUG" -eq 1 ]
   then
@@ -71,7 +59,6 @@ function _realpath() {
 DEBUG=0
 
 TARS=""
-RESOURCES=""
 while getopts "vd:r:" arg; do
   # We handle the rest of the arguments below
   # shellcheck disable=SC2220
@@ -81,9 +68,6 @@ while getopts "vd:r:" arg; do
       ;;
     d)
       TARS="$TARS $OPTARG"
-      ;;
-    r)
-      RESOURCES="$RESOURCES $OPTARG"
       ;;
   esac
 done
@@ -108,17 +92,12 @@ debug_log "Working directory: ${PWD}"
 debug_log "Cache: ${XDG_CACHE_HOME}"
 debug_log "Dhall binary: ${DHALL_BIN}"
 debug_log "Package deps: ${TARS}"
-debug_log "Resources: ${RESOURCES}"
 
 mkdir -p "$XDG_CACHE_HOME/dhall"
 
 # We want the variable to expand into multiple args
 # shellcheck disable=SC2086
 unpack_tars $TARS
-
-# We want the variable to expand into multiple args
-# shellcheck disable=SC2086
-copy_resources $RESOURCES
 
 dump_cache "BEFORE_GEN" "$XDG_CACHE_HOME/dhall"
 
