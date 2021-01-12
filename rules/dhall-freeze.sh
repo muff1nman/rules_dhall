@@ -46,6 +46,15 @@ function _realpath() {
 ## MAIN ##
 ##########
 
+# Support nested tool invocations
+# see https://github.com/bazelbuild/examples/blob/7357eb42c2b87a283effbfff6024b442feb5704b/rules/runfiles/complex_tool.bzl
+if [[ $# -eq 1 ]];
+then
+  RUNFILES="$1"
+else
+  RUNFILES="${0}.runfiles"
+fi
+
 FAST=@@FAST@@
 DEBUG=@@DEBUG@@
 if ! DHALL_BIN=$(_realpath @@DHALL_BIN@@)

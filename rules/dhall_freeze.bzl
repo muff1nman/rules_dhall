@@ -1,13 +1,22 @@
 """A rule that outputs frozen dhall"""
-load("@bazel_skylib//lib:shell.bzl", "shell")
+
+def _runfile(ctx, f):
+    """Return the runfiles relative path of f."""
+    if ctx.workspace_name:
+        return ctx.workspace_name + "/" + f.short_path
+    else:
+        return f.short_path
+
+def _runfiles(ctx, f):
+    return "${RUNFILES}/%s" % _runfile(ctx, f)
 
 def _dhall_freeze_impl(ctx):
   """A rule that outputs frozen dhall"""
   entrypoint = ctx.attr.entrypoint.files.to_list()[0]
 
   substitutions = {
-		  "@@ENTRYPOINT@@": entrypoint.path,
-		  "@@DHALL_BIN@@": ctx.attr._dhall[DefaultInfo].files_to_run.executable.short_path,
+		  "@@ENTRYPOINT@@": _runfiles(ctx, entrypoint),
+		  "@@DHALL_BIN@@": _runfiles(ctx, ctx.attr._dhall[DefaultInfo].files_to_run.executable),
 		  }
 
   inputs = []
@@ -17,10 +26,10 @@ def _dhall_freeze_impl(ctx):
   # Add tar files to the command and to the inputs
   for dep in ctx.attr.deps:
     deps.append(dep.label.name)
-    deps.append(dep.files.to_list()[0].short_path)
+    deps.append(_runfiles(ctx, dep.files.to_list()[0]))
     inputs.append(dep.files.to_list()[0])
 
-  substitutions["@@DEPS@@"] = shell.array_literal(deps)
+  substitutions["@@DEPS@@"] = "(" + " ".join([ str(i) for i in deps]) + ")"
 
   if ctx.attr.verbose:
     substitutions["@@DEBUG@@"] = "1"
