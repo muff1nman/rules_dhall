@@ -22,6 +22,14 @@ def _dhall_freeze_impl(ctx):
   inputs = []
   inputs.append(entrypoint)
 
+  # sanity check deps for the same label.name
+  # This is the negative aspect of the trade off between using the full bazel
+  # package and label name in imports vs just the shorter labelname
+  label_names_list = [ str(i.label.name) for i in ctx.attr.deps ]
+  label_names_dict = { str(i.label.name): True for i in ctx.attr.deps }
+  if len(label_names_dict.keys()) != len(label_names_list):
+    fail("dependencies must use unique label names")
+
   deps = []
   # Add tar files to the command and to the inputs
   for dep in ctx.attr.deps:
