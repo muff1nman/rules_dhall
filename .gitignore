@@ -4,3 +4,7 @@
 # Ignore all bazel-* symlinks. There is no full list since this can change
 # based on the name of the directory bazel is cloned into.
 **/bazel-*
+# Per-environment Bazel overrides (e.g. corporate truststore).
+/.bazelrc.local
+# Bzlmod resolved-dep lockfile.
+/MODULE.bazel.lock

@@ -8,11 +8,10 @@ so they can be used from MODULE.bazel files.
 module(
     name = "dhall",
     version = "0.0.0",
-    compatibility_level = 1,
 )
 
-bazel_dep(name = "bazel_skylib", version = "1.7.1")
-bazel_dep(name = "rules_python", version = "0.40.0")
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "rules_python", version = "1.7.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 
 dhall_deps = use_extension("//:extensions.bzl", "dhall_deps")

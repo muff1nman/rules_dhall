@@ -1,1 +1,3 @@
-build --experimental_allow_tags_propagation
+build --incompatible_allow_tags_propagation
+
+try-import %workspace%/.bazelrc.local
