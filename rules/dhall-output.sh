@@ -20,10 +20,28 @@ function unpack_tars() {
 
 function copy_resources() {
   for resource in "$@"; do
-    local source_path
+    local source_path target_path target_file
     source_path=$(cut -d':' -f 1 <<< "${resource}")
-    local target_path
     target_path=$(cut -d':' -f 2 <<< "${resource}")
+
+    # If the destination is a directory, the eventual file path is
+    # <target_path>/<basename(source)>; check that for the self-copy guard
+    # below.
+    if [[ -d "$target_path" ]]; then
+      target_file="${target_path%/}/$(basename "$source_path")"
+    else
+      target_file="$target_path"
+    fi
+
+    if [[ -e "$target_file" && "$source_path" -ef "$target_file" ]]; then
+      # Sandboxes hand us source files as symlinks pointing back at their
+      # original location. When `data` happens to live next to the
+      # entrypoint, `cp -f` would refuse with "are the same file" because
+      # GNU coreutils sees the inode collision after symlink resolution.
+      # The file is already where dhall expects it, so the copy is a no-op.
+      debug_log "Skipping self-copy: $source_path is already at $target_file"
+      continue
+    fi
 
     debug_log "Copying $source_path to $target_path"
     cp -f "$source_path" "$target_path"

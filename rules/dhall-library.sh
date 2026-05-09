@@ -20,10 +20,28 @@ function unpack_tars() {
 
 function copy_resources() {
   for resource in "$@"; do
-    local source_path
+    local source_path target_path target_file
     source_path=$(cut -d':' -f 1 <<< "${resource}")
-    local target_path
     target_path=$(cut -d':' -f 2 <<< "${resource}")
+
+    # If the destination is a directory, the eventual file path is
+    # <target_path>/<basename(source)>; check that for the self-copy guard
+    # below.
+    if [[ -d "$target_path" ]]; then
+      target_file="${target_path%/}/$(basename "$source_path")"
+    else
+      target_file="$target_path"
+    fi
+
+    if [[ -e "$target_file" && "$source_path" -ef "$target_file" ]]; then
+      # Sandboxes hand us source files as symlinks pointing back at their
+      # original location. When `data` happens to live next to the
+      # entrypoint, `cp -f` would refuse with "are the same file" because
+      # GNU coreutils sees the inode collision after symlink resolution.
+      # The file is already where dhall expects it, so the copy is a no-op.
+      debug_log "Skipping self-copy: $source_path is already at $target_file"
+      continue
+    fi
 
     debug_log "Copying $source_path to $target_path"
     cp -f "$source_path" "$target_path"
@@ -44,25 +62,6 @@ function debug_log() {
  then
     echo "$(basename "$0") DEBUG: $1" >&2
   fi
-}
-
-# This function canonicalizes a path, including resolving symlinks
-# Behavior is equivalent to `realpath` from Linux or brew coreutils
-# https://stackoverflow.com/a/18443300
-function _realpath() {
-  local OURPWD=$PWD
-  cd "$(dirname "$1")" || return 1
-  local LINK
-  LINK=$(readlink "$(basename "$1")")
-  while [ "$LINK" ]; do
-    cd "$(dirname "$LINK")" || return 1
-    LINK=$(readlink "$(basename "$1")")
-  done
-  local REALPATH
-  REALPATH="$PWD/$(basename "$1")"
-  cd "$OURPWD" || return 1
-  echo "$REALPATH"
-  return 0
 }
 
 ##########
@@ -96,11 +95,14 @@ fi
 
 DHALL_BIN=$1
 TARFILE=$2
-if ! DHALL_FILE=$(_realpath "$3")
-then
-  echo "Unable to canonicalize path for $3! Builds could fail on macOS. Falling back to the non-canonical path."
-  DHALL_FILE=$3
-fi
+# Pass the entrypoint to dhall as-given (relative to the action's PWD,
+# which is the execroot). Resolving symlinks here would point dhall at
+# the file's canonical location *outside* the sandbox, where the
+# `copy_resources`-staged data files don't exist -- breaking entrypoints
+# that import sibling files via `./foo` or `./foo as Text`. Keeping the
+# path relative lets dhall's own import resolution stay inside the
+# sandbox-mounted execroot.
+DHALL_FILE=$3
 
 export XDG_CACHE_HOME="$PWD/.cache"
 
