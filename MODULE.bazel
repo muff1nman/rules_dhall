@@ -1,0 +1,31 @@
+"""Bzlmod module definition for rules_dhall.
+
+The custom http_archives previously declared via load_dhall_dependencies()
+in deps.bzl are exposed through the `dhall_deps` module extension below
+so they can be used from MODULE.bazel files.
+"""
+
+module(
+    name = "dhall",
+    version = "0.0.0",
+    compatibility_level = 1,
+)
+
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "rules_python", version = "0.40.0")
+bazel_dep(name = "rules_shell", version = "0.6.1")
+
+dhall_deps = use_extension("//:extensions.bzl", "dhall_deps")
+use_repo(
+    dhall_deps,
+    "dhall-kubernetes",
+    "dhall-prelude",
+    "dhall_bin",
+    "dhall_bin_osx",
+    "dhall_docs_bin",
+    "dhall_docs_bin_osx",
+    "dhall_to_json_bin",
+    "dhall_to_json_bin_osx",
+    "dhall_to_yaml_bin",
+    "dhall_to_yaml_bin_osx",
+)
