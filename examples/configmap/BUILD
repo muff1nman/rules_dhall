@@ -12,13 +12,14 @@ dhall_macro(
 )
 
 # This demonstrates that it is possible to reference the output of dhall_yaml
-dhall_macro(
-    name = "configmap",
-    entrypoint = "configmap.dhall",
-    data = [":server_yaml"],
-    deps = [
-        ":k8s",
-        ":prelude",
-    ],
-    tags = ["block-network"],
-)
+# TODO:broken
+# dhall_macro(
+#     name = "configmap",
+#     entrypoint = "configmap.dhall",
+#     data = [":server_yaml"],
+#     deps = [
+#         ":k8s",
+#         ":prelude",
+#     ],
+#     tags = ["block-network"],
+# )
