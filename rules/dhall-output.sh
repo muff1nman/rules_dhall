@@ -62,9 +62,18 @@ fi
 DHALL_TO_YAML_BIN=$1
 OUTPUT_FILE=$2
 DHALL_FILE=$3
-export XDG_CACHE_HOME="$PWD/.cache"
+
+# Per-invocation scratch dir for the dhall import cache. Putting it under
+# $PWD (the action's execroot) shares state with every other rules_dhall
+# action when actions run in the same execroot under
+# --spawn_strategy=local; mktemp gives each invocation its own directory
+# and the trap cleans it up regardless of how the script exits.
+WORK_DIR=$(mktemp -d)
+trap 'rm -rf "$WORK_DIR"' EXIT
+export XDG_CACHE_HOME="$WORK_DIR/.cache"
 
 debug_log "Working directory: ${PWD}"
+debug_log "Scratch dir: ${WORK_DIR}"
 debug_log "Cache: ${XDG_CACHE_HOME}"
 debug_log "Dhall output binary: ${DHALL_TO_YAML_BIN}"
 debug_log "Package deps: ${TARS}"

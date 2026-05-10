@@ -70,9 +70,20 @@ TARFILE=$2
 # sandbox-mounted execroot.
 DHALL_FILE=$3
 
-export XDG_CACHE_HOME="$PWD/.cache"
+# Per-invocation scratch dir. Holds the dhall-cache, source.dhall and
+# binary.dhall scratch files. Putting these under $PWD (the action's
+# execroot) used to race when several actions ran in the same execroot
+# under --spawn_strategy=local: source.dhall is non-unique and parallel
+# invocations would clobber each other ('source.dhall: openFile: does
+# not exist' / 'tar: source.dhall: File shrank'). mktemp gives each
+# invocation its own writable dir; the trap cleans it up regardless of
+# how the script exits.
+WORK_DIR=$(mktemp -d)
+trap 'rm -rf "$WORK_DIR"' EXIT
+export XDG_CACHE_HOME="$WORK_DIR/.cache"
 
 debug_log "Working directory: ${PWD}"
+debug_log "Scratch dir: ${WORK_DIR}"
 debug_log "Cache: ${XDG_CACHE_HOME}"
 debug_log "Dhall binary: ${DHALL_BIN}"
 debug_log "Package deps: ${TARS}"
@@ -86,17 +97,17 @@ unpack_tars $TARS
 dump_cache "BEFORE_GEN" "$XDG_CACHE_HOME/dhall"
 
 debug_log "Generating source.dhall"
-if ! ${DHALL_BIN} --alpha --file "${DHALL_FILE}" > source.dhall
+if ! ${DHALL_BIN} --alpha --file "${DHALL_FILE}" > "$WORK_DIR/source.dhall"
 then
   exit $?
 fi
 
-SHA_HASH=$(${DHALL_BIN} hash --file source.dhall)
+SHA_HASH=$(${DHALL_BIN} hash --file "$WORK_DIR/source.dhall")
 
 HASH_FILE="${SHA_HASH/sha256:/1220}"
 
 debug_log "Hash is $HASH_FILE"
-if ! ${DHALL_BIN} encode --file source.dhall > "$XDG_CACHE_HOME/dhall/$HASH_FILE"
+if ! ${DHALL_BIN} encode --file "$WORK_DIR/source.dhall" > "$XDG_CACHE_HOME/dhall/$HASH_FILE"
 then
   exit $?
 fi
@@ -104,10 +115,5 @@ fi
 dump_cache "AFTER_GEN" "$XDG_CACHE_HOME/dhall"
 
 debug_log "Creating tarfile $TARFILE"
-tar -cf "$TARFILE" -C "$PWD" ".cache/dhall/$HASH_FILE"
-tar -rf "$TARFILE" source.dhall
-echo "missing $HASH_FILE" > binary.dhall
-tar -rf "$TARFILE" binary.dhall
-
-debug_log "Removing source.dhall"
-rm source.dhall
+echo "missing $HASH_FILE" > "$WORK_DIR/binary.dhall"
+tar -cf "$TARFILE" -C "$WORK_DIR" ".cache/dhall/$HASH_FILE" source.dhall binary.dhall
