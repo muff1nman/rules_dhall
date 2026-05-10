@@ -1,17 +1,46 @@
 
 """A rule that processes dhall files and creates an output"""
+
+def _stage_data(ctx, entrypoint):
+  """Stage `data` files alongside a copy of `entrypoint` so dhall's `./foo`
+  relative imports resolve to bazel-managed symlinks rather than to a
+  shell-time `cp -f` target. See dhall_library.bzl for the full rationale.
+
+  Returns (staged_entrypoint, [staged_data...]) when staging happens, or
+  (entrypoint, []) when there is no data and the unstaged entrypoint
+  works just as well.
+  """
+  if not ctx.attr.data:
+    return entrypoint, []
+
+  stage_prefix = ctx.label.name + "_dhall_data/"
+  staged_entrypoint = ctx.actions.declare_file(stage_prefix + entrypoint.basename)
+  ctx.actions.symlink(output = staged_entrypoint, target_file = entrypoint)
+
+  staged = []
+  for data in ctx.attr.data:
+    src = data.files.to_list()[0]
+    out = ctx.actions.declare_file(stage_prefix + src.basename)
+    ctx.actions.symlink(output = out, target_file = src)
+    staged.append(out)
+
+  return staged_entrypoint, staged
+
 def _dhall_output_impl(ctx):
   entrypoint = ctx.attr.entrypoint.files.to_list()[0]
 
   output_file = entrypoint.basename[0:-6] + "." + ctx.attr._format
-  
-  inputs = []
-  inputs.append(entrypoint)
 
   if ctx.attr.out != "":
     output_file = ctx.attr.out
 
   output = ctx.actions.declare_file(output_file)
+
+  staged_entrypoint, staged_data = _stage_data(ctx, entrypoint)
+
+  inputs = []
+  inputs.append(staged_entrypoint)
+  inputs.extend(staged_data)
 
   # Build command
   cmd = []
@@ -24,10 +53,6 @@ def _dhall_output_impl(ctx):
     cmd.append( "-d " + dep.files.to_list()[0].path)
     inputs.append( dep.files.to_list()[0] )
 
-  for data in ctx.attr.data:
-    cmd.append( "-r " + data.files.to_list()[0].path + ":" + entrypoint.dirname)
-    inputs.append( data.files.to_list()[0] )
-
   # add all sources to the inputs
   for src in ctx.attr.srcs:
     file = src.files.to_list()[0]
@@ -35,7 +60,7 @@ def _dhall_output_impl(ctx):
 
   cmd.append( ctx.attr._dhall_command.files_to_run.executable.path )
   cmd.append( output.path )
-  cmd.append( entrypoint.path )
+  cmd.append( staged_entrypoint.path )
 
   ctx.actions.run_shell(
     inputs = inputs,
